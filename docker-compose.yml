@@ -3,8 +3,11 @@
 # "scramjet-egress" docker network and are addressed by service name.
 
 # Shared base for wireproxy sidecars: each peer differs only by the
-# WireGuard config it mounts.
+# WireGuard config it mounts. All three reference the same `image:` tag so
+# docker compose builds wireproxy ONCE and reuses the result for peers 2/3
+# instead of rebuilding the Go binary three times.
 x-wireproxy-base: &wireproxy-base
+  image: scramjet-wireproxy:local
   build: ./wireproxy
   restart: unless-stopped
   networks:
