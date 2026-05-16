@@ -1,12 +1,51 @@
-# TODO: needs to be updated for sj
-# services:
-#   ultraviolet:
-#     image: diffusehyperion/ultraviolet
-#     container_name: scramjet
-#     restart: unless-stopped
-#     ports:
-#       - "8080:8080"
+# Only port 8080 (Scramjet HTTP) is published to the host.
+# The wireproxy SOCKS5 listeners (port 25344, internal) stay on the
+# "scramjet-egress" docker network and are addressed by service name.
 
-# networks:
-#   default:
-#     name: ultraviolet
+# Shared base for wireproxy sidecars: each peer differs only by the
+# WireGuard config it mounts.
+x-wireproxy-base: &wireproxy-base
+  build: ./wireproxy
+  restart: unless-stopped
+  networks:
+    - egress
+  cap_add:
+    - NET_ADMIN
+
+services:
+  scramjet:
+    build: .
+    container_name: scramjet
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      WIREPROXY_SOCKS: ${WIREPROXY_SOCKS:-}
+    depends_on:
+      - wireproxy1
+      - wireproxy2
+      - wireproxy3
+    networks:
+      - egress
+
+  wireproxy1:
+    <<: *wireproxy-base
+    container_name: wireproxy1
+    volumes:
+      - ./wg-configs/peer1.conf:/etc/wireproxy/config:ro
+
+  wireproxy2:
+    <<: *wireproxy-base
+    container_name: wireproxy2
+    volumes:
+      - ./wg-configs/peer2.conf:/etc/wireproxy/config:ro
+
+  wireproxy3:
+    <<: *wireproxy-base
+    container_name: wireproxy3
+    volumes:
+      - ./wg-configs/peer3.conf:/etc/wireproxy/config:ro
+
+networks:
+  egress:
+    name: scramjet-egress

@@ -2,73 +2,92 @@
 
 <h1 align="center">Scramjet Demo</h1>
 
-The demo implementation of <a href="https://github.com/MercuryWorkshop/scramjet">Scramjet</a>, the most advanced web proxy.
+The demo implementation of <a href="https://github.com/MercuryWorkshop/scramjet">Scramjet</a>, an interception-based web proxy by Mercury Workshop, with an optional WireGuard SOCKS5 sidecar pool for per-connection egress IP rotation.
 
-<a href="https://github.com/MercuryWorkshop/scramjet">Scramjet</a> is an experimental interception based web proxy designed with security, developer friendliness, and performance in mind. This project is made to evade internet censorship and bypass arbitrary web browser restrictions.
+## Quick start
 
-#### Refer to <a href="https://github.com/HeyPuter/browser.js">browser.js</a> where this project will now receive updates outside of just bypassing internet censorship.
-
-## Supported Sites
-
-Scramjet has CAPTCHA support! Some of the popular websites that Scramjet supports include:
-
-- [Google](https://google.com)
-- [Twitter](https://twitter.com)
-- [Instagram](https://instagram.com)
-- [Youtube](https://youtube.com)
-- [Spotify](https://spotify.com)
-- [Discord](https://discord.com)
-- [Reddit](https://reddit.com)
-- [GeForce NOW](https://play.geforcenow.com/)
-
-Ensure you are not hosting on a datacenter IP for CAPTCHAs to work reliably along with YouTube. Heavy amounts of traffic will make some sites NOT work on a single IP. Consider rotating IPs or routing through Wireguard using a project like <a href="https://github.com/whyvl/wireproxy">wireproxy</a>.
-
-## Setup / Usage
-
-You will need Node.js 16.x (and above) and Git installed; below is an example for Debian/Ubuntu setup.
-
-```
-sudo apt update
-sudo apt upgrade
-sudo apt install curl git nginx
-
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-nvm install 20
-nvm use 20
-
-git clone https://github.com/MercuryWorkshop/Scramjet-App
-cd Scramjet-App
+```sh
+./start.sh            # interactive menu
+./start.sh rotate     # non-interactive: jp | us | nl | rotate | none
 ```
 
-Install dependencies
+That brings up the docker-compose stack and serves Scramjet at <http://localhost:8080>.
 
-```
+If you just want the bare server (no docker, no rotation):
+
+```sh
 pnpm install
+pnpm start            # listens on $PORT (default 8080)
 ```
 
-Run the server
+## Ports
+
+The stack only publishes **one port to the host**:
+
+| Port    | Where           | Purpose                                                          |
+| ------- | --------------- | ---------------------------------------------------------------- |
+| `8080`  | host + container | Scramjet HTTP server (browser hits this)                         |
+| `25344` | container only   | wireproxy SOCKS5 listener, reached over the internal docker net  |
+
+The three wireproxy sidecars each listen on `25344` *inside* their own container — addressed as `wireproxy1:25344`, `wireproxy2:25344`, `wireproxy3:25344` from the Scramjet container. They are **not** published to the host, so it doesn't matter that they share a port number.
+
+Override the Scramjet port with `PORT=...` (in `.env` or the environment).
+
+## Sibling stacks
+
+YouTube is not proxyable through Scramjet (Google's anti-bot stack defeats interception). For YouTube, run [Piped](https://github.com/TeamPiped/Piped) separately:
+
+```sh
+cd /workspaces/youtube-stack && ./scripts/up.sh
+```
+
+## Egress IP rotation
+
+When `WIREPROXY_SOCKS` is set (a comma-separated `host:port` list), Scramjet routes outbound TCP through the pool, round-robin per connection. `./start.sh` writes that variable into `.env` for you based on the menu choice.
+
+To add or change peers:
+
+1. Drop a new `peerN.conf` into [`wg-configs/`](./wg-configs/README.md) (use `example.conf` as a template).
+2. Add a matching `wireproxyN` service in [`docker-compose.yml`](./docker-compose.yml) (it's a one-line YAML anchor reuse).
+3. Add `wireproxyN:25344` to the `WIREPROXY_SOCKS` value in `.env` (or extend `start.sh`'s menu).
+
+If `WIREPROXY_SOCKS` is empty/unset, rotation is disabled and Scramjet egresses from the host IP. Implementation lives in `src/socksPool.js` and `src/socksTcpSocket.js`.
+
+## Repo layout
 
 ```
-pnpm start
+src/                Fastify server, wisp routing, SOCKS pool, rotating TCPSocket
+public/             Landing page, service worker, scramjet client glue
+wireproxy/          Vendored wireproxy Go source, built into the sidecar image
+wg-configs/         User-supplied WireGuard peer configs (gitignored except example.conf)
+docker-compose.yml  Scramjet + 3x wireproxy sidecar stack
+Dockerfile          Scramjet image (node:18-alpine + pnpm)
+start.sh            Launcher with egress menu
+.env.example        Template for the .env that start.sh writes
 ```
 
-Resources for self-hosting:
+## Scripts
 
-- https://github.com/nvm-sh/nvm
-- https://docs.titaniumnetwork.org/guides/nginx/
-- https://docs.titaniumnetwork.org/guides/vps-hosting/
-- https://docs.titaniumnetwork.org/guides/dns-setup/
+| Command            | What it does                                  |
+| ------------------ | --------------------------------------------- |
+| `./start.sh`       | Interactive: pick egress, rebuild, run stack  |
+| `pnpm start`       | Run the bare Node server (no docker)          |
+| `pnpm lint`        | ESLint on `./src/`                            |
+| `pnpm lint:fix`    | ESLint with `--fix`                           |
+| `pnpm format`      | Prettier write across the repo                |
 
-### HTTP Transport
+## Supported sites
 
-The example uses [libcurl-transport](https://github.com/MercuryWorkshop/libcurl-transport) to fetch proxied data encrypted.
+Scramjet handles most of the major web — Google, Twitter/X, Instagram, Spotify, Discord, Reddit, GeForce NOW — with CAPTCHA support. Heavy traffic from a single IP will trip anti-bot defenses; rotate egress IPs (see above) when that becomes a problem. YouTube specifically is **not** supported through Scramjet; use Piped.
 
-You may also want to use [epoxy-transport](https://github.com/MercuryWorkshop/epoxy-transport), a different way of fetching encrypted data.
+## Transports
 
-This example also now uses [wisp-js/server](https://www.npmjs.com/package/@mercuryworkshop/wisp-js) instead of the now outdated wisp-server-node. Please note that this can also be replaced with other wisp implementations like [wisp-server-python](https://github.com/MercuryWorkshop/wisp-server-python) which is highly recommended for production.
+The client uses [libcurl-transport](https://github.com/MercuryWorkshop/libcurl-transport) for encrypted proxied fetches. [epoxy-transport](https://github.com/MercuryWorkshop/epoxy-transport) is a drop-in alternative.
 
-See the [bare-mux](https://github.com/MercuryWorkshop/bare-mux) documentation for more information.
+The server runs [wisp-js](https://www.npmjs.com/package/@mercuryworkshop/wisp-js) for the WebSocket transport. For production-grade throughput, [wisp-server-python](https://github.com/MercuryWorkshop/wisp-server-python) is recommended upstream. See [bare-mux](https://github.com/MercuryWorkshop/bare-mux) for the multiplexer.
+
+## Links
+
+- Scramjet upstream: <https://github.com/MercuryWorkshop/scramjet>
+- browser.js (where Scramjet now receives non-censorship updates): <https://github.com/HeyPuter/browser.js>
+- Self-hosting guides: [nvm](https://github.com/nvm-sh/nvm), [nginx](https://docs.titaniumnetwork.org/guides/nginx/), [VPS](https://docs.titaniumnetwork.org/guides/vps-hosting/), [DNS](https://docs.titaniumnetwork.org/guides/dns-setup/)

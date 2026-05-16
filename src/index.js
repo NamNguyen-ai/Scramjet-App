@@ -9,6 +9,9 @@ import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
+import { endpoints, isEnabled } from "./socksPool.js";
+import { RotatingSocksTCPSocket } from "./socksTcpSocket.js";
+
 const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
 
 // Wisp Configuration: Refer to the documentation at https://www.npmjs.com/package/@mercuryworkshop/wisp-js
@@ -29,8 +32,12 @@ const fastify = Fastify({
 				handler(req, res);
 			})
 			.on("upgrade", (req, socket, head) => {
-				if (req.url.endsWith("/wisp/")) wisp.routeRequest(req, socket, head);
-				else socket.end();
+				if (req.url.endsWith("/wisp/")) {
+					const opts = isEnabled()
+						? { TCPSocket: RotatingSocksTCPSocket }
+						: undefined;
+					wisp.routeRequest(req, socket, head, opts);
+				} else socket.end();
 			});
 	},
 });
@@ -64,6 +71,14 @@ fastify.setNotFoundHandler((res, reply) => {
 
 fastify.server.on("listening", () => {
 	const address = fastify.server.address();
+
+	if (isEnabled()) {
+		console.log(
+			`Wireproxy rotation: ${endpoints.length} SOCKS5 endpoints configured`
+		);
+	} else {
+		console.log("Wireproxy rotation: disabled (WIREPROXY_SOCKS unset)");
+	}
 
 	// by default we are listening on 0.0.0.0 (every interface)
 	// we just need to list a few
