@@ -27,11 +27,73 @@ body {
 #sj-frame {
 	border: none;
 	position: absolute;
-	top: 0;
+	top: 44px;
 	left: 0;
 	width: 100vw;
-	height: 100vh;
+	height: calc(100vh - 44px);
 	background-color: #111;
+}
+
+#sj-toolbar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 44px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 8px;
+	background: #1c1c1c;
+	border-bottom: 1px solid #2a2a2a;
+	z-index: 10;
+	box-sizing: border-box;
+}
+
+#sj-toolbar button {
+	background: #2a2a2a;
+	color: #fff;
+	border: 1px solid #333;
+	border-radius: 6px;
+	width: 32px;
+	height: 32px;
+	font-size: 16px;
+	line-height: 1;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+#sj-toolbar button:hover {
+	background: #353535;
+}
+
+#sj-toolbar button:active {
+	background: #404040;
+}
+
+#sj-omnibox-form {
+	flex: 1;
+	display: flex;
+	margin: 0;
+}
+
+#sj-omnibox {
+	flex: 1;
+	background: #111;
+	color: #fff;
+	border: 1px solid #333;
+	border-radius: 6px;
+	height: 32px;
+	padding: 0 12px;
+	outline: none;
+	font-family: inherit;
+	font-size: 13px;
+}
+
+#sj-omnibox:focus {
+	border-color: rgba(253, 253, 253, 0.5);
 }
 
 #sj-error {

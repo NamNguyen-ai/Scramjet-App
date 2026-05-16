@@ -44,6 +44,17 @@
 			<p id="sj-error"></p>
 			<pre id="sj-error-code"></pre>
 		</div>
+
+		<!-- Browser-style toolbar; shown only once a frame exists. -->
+		<div id="sj-toolbar" hidden>
+			<button id="sj-back" type="button" title="Back" aria-label="Back">&#x2190;</button>
+			<button id="sj-forward" type="button" title="Forward" aria-label="Forward">&#x2192;</button>
+			<button id="sj-reload" type="button" title="Reload" aria-label="Reload">&#x21bb;</button>
+			<form id="sj-omnibox-form">
+				<input id="sj-omnibox" type="text" autocomplete="off" spellcheck="false" />
+			</form>
+			<button id="sj-home" type="button" title="Home (close proxied page)" aria-label="Home">&#x2715;</button>
+		</div>
 		<footer>
 			<div>
 				<a

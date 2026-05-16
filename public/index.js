@@ -20,6 +20,16 @@ const error = document.getElementById("sj-error");
  */
 const errorCode = document.getElementById("sj-error-code");
 
+const toolbar = document.getElementById("sj-toolbar");
+const backBtn = document.getElementById("sj-back");
+const forwardBtn = document.getElementById("sj-forward");
+const reloadBtn = document.getElementById("sj-reload");
+const homeBtn = document.getElementById("sj-home");
+const omniboxForm = document.getElementById("sj-omnibox-form");
+const omnibox = document.getElementById("sj-omnibox");
+
+let activeFrame = null;
+
 const { ScramjetController } = $scramjetLoadController();
 
 const wispUrl =
@@ -81,8 +91,47 @@ form.addEventListener("submit", async (event) => {
 			{ websocket: wispUrl },
 		]);
 	}
-	const frame = scramjet.createFrame();
-	frame.frame.id = "sj-frame";
-	document.body.appendChild(frame.frame);
-	frame.go(url);
+	if (!activeFrame) {
+		activeFrame = scramjet.createFrame();
+		activeFrame.frame.id = "sj-frame";
+		document.body.appendChild(activeFrame.frame);
+		// Scramjet emits "urlchange" on the frame whenever the proxied page
+		// navigates (clicks, history.pushState, full loads). Mirror it into
+		// the omnibox so the address bar tracks the visible page.
+		activeFrame.addEventListener?.("urlchange", (e) => {
+			if (omnibox && typeof e?.url === "string") omnibox.value = e.url;
+		});
+		toolbar.hidden = false;
+	}
+	omnibox.value = url;
+	activeFrame.go(url);
+});
+
+function withFrame(fn) {
+	return (event) => {
+		if (!activeFrame) return;
+		event.preventDefault();
+		fn(activeFrame);
+	};
+}
+
+backBtn.addEventListener("click", withFrame((f) => f.back()));
+forwardBtn.addEventListener("click", withFrame((f) => f.forward()));
+reloadBtn.addEventListener("click", withFrame((f) => f.reload()));
+
+omniboxForm.addEventListener(
+	"submit",
+	withFrame((f) => {
+		const url = search(omnibox.value, searchEngine.value);
+		omnibox.value = url;
+		f.go(url);
+	})
+);
+
+homeBtn.addEventListener("click", () => {
+	if (!activeFrame) return;
+	activeFrame.frame.remove();
+	activeFrame = null;
+	toolbar.hidden = true;
+	omnibox.value = "";
 });
