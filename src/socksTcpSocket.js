@@ -17,6 +17,7 @@ class AsyncQueue {
 		this.queue = [];
 		this.put_callbacks = [];
 		this.get_callbacks = [];
+		this.closed = false;
 	}
 
 	put_now(data) {
@@ -37,11 +38,17 @@ class AsyncQueue {
 
 	get_now() {
 		this.put_callbacks.shift()?.();
+		// Once closed and drained, return null so the wisp tcp_to_ws loop
+		// breaks and signals a *clean* end to the browser. Crucially we only
+		// reach here with an empty queue after every buffered chunk has been
+		// handed off — close() no longer discards them.
+		if (this.size === 0 && this.closed) return null;
 		return this.queue.shift();
 	}
 
 	async get() {
 		if (this.size > 0) return this.get_now();
+		if (this.closed) return null;
 		await new Promise((resolve) => {
 			this.get_callbacks.push(resolve);
 		});
@@ -49,7 +56,12 @@ class AsyncQueue {
 	}
 
 	close() {
-		this.queue = [];
+		// Do NOT drop queued chunks: the socket can reach EOF (FIN/RST) while
+		// the slower ws side still has buffered response bytes to forward.
+		// Wiping them here truncates the HTTP body and surfaces in the WASM
+		// hyper client as IncompleteMessage. Mark closed and wake any waiters
+		// so they drain the remainder, then see null.
+		this.closed = true;
 		let cb;
 		while ((cb = this.get_callbacks.shift())) cb();
 		while ((cb = this.put_callbacks.shift())) cb();
@@ -94,18 +106,22 @@ export class RotatingSocksTCPSocket {
 		socket.on("data", (data) => {
 			this.data_queue.put(data);
 		});
+		// "close" is the authoritative EOF: Node guarantees every prior "data"
+		// event has fired before it. data_queue.close() now drains rather than
+		// discards, so the buffered tail still reaches the browser.
 		socket.on("close", () => {
 			this.data_queue.close();
 			this.socket = null;
 		});
-		socket.on("error", () => {
-			this.data_queue.close();
-		});
-		socket.on("end", () => {
-			if (!this.socket) return;
-			this.socket.destroy();
-			this.socket = null;
-		});
+		// Match wisp-js NodeTCPSocket: only log on error. Many servers end
+		// keep-alive connections with an RST (ECONNRESET) right after the last
+		// byte; closing the queue here would race "data"/"close" and truncate
+		// the response. Let the eventual "close" event drain and finish it.
+		socket.on("error", () => {});
+		// Do not destroy() on "end" — a hard destroy can drop bytes still
+		// sitting in the socket's read buffer on a tunneled SOCKS connection.
+		// Allow half-open to flush; "close" will null out the socket.
+		socket.on("end", () => {});
 	}
 
 	async recv() {
