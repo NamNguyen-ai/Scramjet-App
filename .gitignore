@@ -6,3 +6,6 @@ scramjet/
 # Wireguard peer configs hold real keys; keep templates out of git
 wg-configs/*.conf
 !wg-configs/example.conf
+
+# Local Claude Code tooling config / session artifacts
+.claude/
