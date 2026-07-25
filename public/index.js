@@ -30,6 +30,25 @@ const omnibox = document.getElementById("sj-omnibox");
 
 let activeFrame = null;
 
+const nekoFrame = document.getElementById("sj-neko");
+
+function openNekoView() {
+	// Tear down any Scramjet frame so only one view is active.
+	if (activeFrame) {
+		activeFrame.frame.remove();
+		activeFrame = null;
+	}
+	nekoFrame.src = window.NEKO_PUBLIC_URL;
+	nekoFrame.hidden = false;
+	toolbar.hidden = false;
+	omnibox.value = "https://youtube.com";
+}
+
+function closeNekoView() {
+	nekoFrame.hidden = true;
+	nekoFrame.removeAttribute("src");
+}
+
 const { ScramjetController } = $scramjetLoadController();
 
 const wispUrl =
@@ -86,6 +105,11 @@ form.addEventListener("submit", async (event) => {
 
 	const url = search(address.value, searchEngine.value);
 
+	if (window.isYouTubeUrl && window.isYouTubeUrl(url)) {
+		openNekoView();
+		return;
+	}
+
 	if ((await connection.getTransport()) !== "/libcurl/index.mjs") {
 		await connection.setTransport("/libcurl/index.mjs", [
 			{ websocket: wispUrl },
@@ -103,6 +127,7 @@ form.addEventListener("submit", async (event) => {
 		});
 		toolbar.hidden = false;
 	}
+	closeNekoView();
 	omnibox.value = url;
 	activeFrame.go(url);
 });
@@ -119,19 +144,27 @@ backBtn.addEventListener("click", withFrame((f) => f.back()));
 forwardBtn.addEventListener("click", withFrame((f) => f.forward()));
 reloadBtn.addEventListener("click", withFrame((f) => f.reload()));
 
-omniboxForm.addEventListener(
-	"submit",
-	withFrame((f) => {
-		const url = search(omnibox.value, searchEngine.value);
-		omnibox.value = url;
-		f.go(url);
-	})
-);
+omniboxForm.addEventListener("submit", (event) => {
+	event.preventDefault();
+	const url = search(omnibox.value, searchEngine.value);
+
+	if (window.isYouTubeUrl && window.isYouTubeUrl(url)) {
+		openNekoView();
+		return;
+	}
+
+	if (!activeFrame) return;
+	closeNekoView();
+	omnibox.value = url;
+	activeFrame.go(url);
+});
 
 homeBtn.addEventListener("click", () => {
-	if (!activeFrame) return;
-	activeFrame.frame.remove();
-	activeFrame = null;
+	closeNekoView();
+	if (activeFrame) {
+		activeFrame.frame.remove();
+		activeFrame = null;
+	}
 	toolbar.hidden = true;
 	omnibox.value = "";
 });

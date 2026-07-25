@@ -14,6 +14,12 @@
 		<script src="/baremux/index.js"></script>
 		
 		<link rel="stylesheet" href="index.css" />
+		<script>
+			// Base URL of the Neko remote browser. Same-origin default assumes a
+			// reverse-proxy path; overridden at deploy time by injecting a value.
+			window.NEKO_PUBLIC_URL = window.NEKO_PUBLIC_URL || "/neko/";
+		</script>
+		<script type="module" src="ytdetect.js"></script>
 		<script src="register-sw.js" defer></script>
 		<script src="search.js" defer></script>
 		<script src="index.js" defer></script>
@@ -55,6 +61,13 @@
 			</form>
 			<button id="sj-home" type="button" title="Home (close proxied page)" aria-label="Home">&#x2715;</button>
 		</div>
+		<!-- Remote-browser (Neko) view; shown only for YouTube. -->
+		<iframe
+			id="sj-neko"
+			title="Remote browser"
+			allow="autoplay; fullscreen; clipboard-read; clipboard-write"
+			hidden
+		></iframe>
 		<footer>
 			<div>
 				<a
