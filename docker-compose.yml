@@ -31,6 +31,35 @@ services:
     networks:
       - egress
 
+  neko:
+    image: ghcr.io/m1k1o/neko/chromium:latest
+    container_name: neko
+    restart: unless-stopped
+    shm_size: "2gb"
+    cap_add:
+      - SYS_ADMIN
+    ports:
+      - "8081:8080"
+    environment:
+      NEKO_DESKTOP_SCREEN: "1920x1080@30"
+      # No in-app auth; access is gated by GitHub forwarded-port = Private.
+      NEKO_MEMBER_PROVIDER: "multiuser"
+      NEKO_MEMBER_MULTIUSER_USER_PASSWORD: ${NEKO_USER_PASSWORD:-neko}
+      NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: ${NEKO_ADMIN_PASSWORD:-admin}
+      # ICE servers = Cloudflare TURN (minted by start.sh). ICELITE MUST be 0
+      # when supplying ICE servers.
+      NEKO_WEBRTC_ICELITE: "0"
+      NEKO_WEBRTC_ICESERVERS_FRONTEND: ${NEKO_WEBRTC_ICESERVERS_FRONTEND:-[]}
+      NEKO_WEBRTC_ICESERVERS_BACKEND: ${NEKO_WEBRTC_ICESERVERS_BACKEND:-[]}
+      NEKO_WEBRTC_TCPMUX: "59000"
+      # Route Chromium egress through the existing residential SOCKS exit.
+      NEKO_DESKTOP_CHROMIUM_FLAGS: >-
+        --proxy-server=socks5://${NEKO_EGRESS_SOCKS:-wireproxy1:25344}
+    depends_on:
+      - wireproxy1
+    networks:
+      - egress
+
   wireproxy1:
     <<: *wireproxy-base
     container_name: wireproxy1
