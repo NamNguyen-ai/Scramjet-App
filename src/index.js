@@ -11,6 +11,7 @@ import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
 import { endpoints, isEnabled } from "./socksPool.js";
 import { RotatingSocksTCPSocket } from "./socksTcpSocket.js";
+import { turnEnabled, fetchTurnCreds } from "./turnCreds.js";
 
 const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
 
@@ -63,6 +64,26 @@ fastify.register(fastifyStatic, {
 	root: baremuxPath,
 	prefix: "/baremux/",
 	decorateReply: false,
+});
+
+// Short-lived Cloudflare TURN credentials for the device-side WebRTC client.
+// The long-term Turn Token stays in env; this only ever returns ephemeral creds.
+fastify.get("/turn-creds", async (request, reply) => {
+	if (!turnEnabled()) {
+		return reply.code(503).send({ error: "TURN not configured" });
+	}
+	try {
+		const ttl = parseInt(process.env.CF_TURN_TTL || "", 10) || 86400;
+		const creds = await fetchTurnCreds({
+			tokenId: process.env.CF_TURN_TOKEN_ID,
+			apiToken: process.env.CF_TURN_API_TOKEN,
+			ttl,
+		});
+		return reply.send(creds);
+	} catch (err) {
+		request.log.error(err);
+		return reply.code(502).send({ error: "Failed to mint TURN credentials" });
+	}
 });
 
 fastify.setNotFoundHandler((res, reply) => {
