@@ -2,7 +2,7 @@
 # Scramjet launcher.
 #
 # Interactive:    ./start.sh
-# Non-interactive: ./start.sh {jp|us|nl|rotate|none}
+# Non-interactive: ./start.sh {mx|us|nl|rotate|none}
 #
 # Either way, picks an egress profile, writes WIREPROXY_SOCKS into .env,
 # then brings up the docker-compose stack (Scramjet on :8080 + wireproxy

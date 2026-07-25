@@ -15,4 +15,4 @@ curl -s \
 	--header "Authorization: Bearer ${CF_TURN_API_TOKEN}" \
 	--header "Content-Type: application/json" \
 	--data "{\"ttl\": ${ttl}}" \
-| jq -c '[.iceServers[] | .urls |= map(select(contains(":53") | not)) | select(.urls | length > 0)]'
+| jq -c '[.iceServers[] | .urls |= map(select(test(":53(\\?|$)") | not)) | select(.urls | length > 0)]'
