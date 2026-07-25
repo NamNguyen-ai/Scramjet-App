@@ -1,4 +1,4 @@
-# Only port 8080 (Scramjet HTTP) is published to the host.
+# Ports 8080 (Scramjet HTTP) and 8081 (Neko remote browser) are published to the host.
 # The wireproxy SOCKS5 listeners (port 25344, internal) stay on the
 # "scramjet-egress" docker network and are addressed by service name.
 
