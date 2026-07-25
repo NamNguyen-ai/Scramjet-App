@@ -11,12 +11,14 @@ export function turnEnabled(env = process.env) {
 }
 
 // Browsers block the alternate :53 TURN/STUN port, so strip those URLs.
+// Match the port exactly (":53" followed by "?" or end of string) so we
+// don't accidentally drop the standard TURNS port 5349.
 // Returns a fresh copy; never mutates the input.
 export function filterPort53(iceServers) {
 	const out = [];
 	for (const server of iceServers) {
 		const urls = (Array.isArray(server.urls) ? server.urls : [server.urls]).filter(
-			(u) => !u.includes(":53")
+			(u) => !/:53(\?|$)/.test(u)
 		);
 		if (urls.length === 0) continue;
 		out.push({ ...server, urls });

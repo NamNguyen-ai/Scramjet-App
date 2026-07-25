@@ -27,11 +27,16 @@ test("turnEnabled true only when both env vars present", () => {
 	assert.equal(turnEnabled({}), false);
 });
 
-test("filterPort53 removes only :53 urls and preserves 443", () => {
+test("filterPort53 removes only :53 urls and preserves 443/5349", () => {
 	const out = filterPort53(CF_SAMPLE.iceServers);
 	const allUrls = out.flatMap((s) => s.urls);
-	assert.ok(allUrls.every((u) => !u.includes(":53")));
+	// exact port 53 is dropped, other ports containing "53" are kept
+	assert.ok(allUrls.every((u) => !/:53(\?|$)/.test(u)));
+	assert.ok(!allUrls.includes("stun:stun.cloudflare.com:53"));
+	assert.ok(!allUrls.includes("turn:turn.cloudflare.com:53?transport=udp"));
 	assert.ok(allUrls.includes("turns:turn.cloudflare.com:443?transport=tcp"));
+	// the standard TURNS port 5349 must survive (regression guard)
+	assert.ok(allUrls.includes("turns:turn.cloudflare.com:5349?transport=tcp"));
 	// original not mutated
 	assert.ok(CF_SAMPLE.iceServers[0].urls.includes("stun:stun.cloudflare.com:53"));
 });
@@ -56,7 +61,7 @@ test("fetchTurnCreds posts to the right endpoint and returns filtered iceServers
 	assert.equal(seenInit.method, "POST");
 	assert.equal(seenInit.headers.Authorization, "Bearer TOKEN");
 	assert.equal(JSON.parse(seenInit.body).ttl, 3600);
-	assert.ok(res.iceServers.flatMap((s) => s.urls).every((u) => !u.includes(":53")));
+	assert.ok(res.iceServers.flatMap((s) => s.urls).every((u) => !/:53(\?|$)/.test(u)));
 });
 
 test("fetchTurnCreds throws on non-ok response", async () => {
