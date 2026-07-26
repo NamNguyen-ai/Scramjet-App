@@ -46,17 +46,20 @@ services:
       NEKO_MEMBER_PROVIDER: "multiuser"
       NEKO_MEMBER_MULTIUSER_USER_PASSWORD: ${NEKO_USER_PASSWORD:-neko}
       NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: ${NEKO_ADMIN_PASSWORD:-admin}
+      # Single-viewer use: any logged-in session controls mouse/keyboard
+      # immediately. Default (false) only lets an explicit host inject input,
+      # so a plain user sees the stream but can't move the cursor.
+      NEKO_SESSION_IMPLICIT_HOSTING: "true"
       # ICE servers = Cloudflare TURN (minted by start.sh). ICELITE MUST be 0
       # when supplying ICE servers.
       NEKO_WEBRTC_ICELITE: "0"
       NEKO_WEBRTC_ICESERVERS_FRONTEND: ${NEKO_WEBRTC_ICESERVERS_FRONTEND:-[]}
       NEKO_WEBRTC_ICESERVERS_BACKEND: ${NEKO_WEBRTC_ICESERVERS_BACKEND:-[]}
       NEKO_WEBRTC_TCPMUX: "59000"
-      # Route Chromium egress through the existing residential SOCKS exit.
-      NEKO_DESKTOP_CHROMIUM_FLAGS: >-
-        --proxy-server=socks5://${NEKO_EGRESS_SOCKS:-wireproxy1:25344}
-    depends_on:
-      - wireproxy1
+      # Chromium egress. Default is DIRECT (Codespace IP, full bandwidth) —
+      # Probe 3 showed the Pi Zero W residential exit can't sustain 1080p.
+      # Set NEKO_EGRESS_SOCKS to route through a SOCKS exit; empty = no proxy flag.
+      NEKO_DESKTOP_CHROMIUM_FLAGS: ${NEKO_EGRESS_SOCKS:+--proxy-server=socks5://${NEKO_EGRESS_SOCKS}}
     networks:
       - egress
 

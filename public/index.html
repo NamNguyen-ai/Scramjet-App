@@ -15,9 +15,21 @@
 		
 		<link rel="stylesheet" href="index.css" />
 		<script>
-			// Base URL of the Neko remote browser. Same-origin default assumes a
-			// reverse-proxy path; overridden at deploy time by injecting a value.
-			window.NEKO_PUBLIC_URL = window.NEKO_PUBLIC_URL || "/neko/";
+			// Base URL of the Neko remote browser. Neko is published on port 8081,
+			// a separate origin from this page (8080). Derive its URL from our own
+			// location: GitHub Codespaces forwards each port to a distinct hostname
+			// (<name>-8080... -> <name>-8081...); elsewhere just swap the port.
+			window.NEKO_PUBLIC_URL =
+				window.NEKO_PUBLIC_URL ||
+				(function () {
+					var l = window.location;
+					var host = l.hostname.replace("-8080.", "-8081.");
+					if (host === l.hostname) {
+						// not the Codespaces pattern: swap the port instead
+						return l.protocol + "//" + l.hostname + ":8081/";
+					}
+					return l.protocol + "//" + host + "/";
+				})();
 		</script>
 		<script type="module" src="ytdetect.js"></script>
 		<script src="register-sw.js" defer></script>
@@ -62,10 +74,20 @@
 			<button id="sj-home" type="button" title="Home (close proxied page)" aria-label="Home">&#x2715;</button>
 		</div>
 		<!-- Remote-browser (Neko) view; shown only for YouTube. -->
+		<!--
+			credentialless: the page sets COEP: require-corp (for Scramjet's
+			cross-origin isolation), which recursively blocks any cross-origin
+			iframe lacking COEP/CORP headers. Neko (a different origin on :8081)
+			sends none, so it is blocked without this. The credentialless
+			attribute loads Neko in an ephemeral context, lifting the COEP
+			requirement for this frame while the page stays crossOriginIsolated.
+			Chromium-only (fine — Neko needs a Chromium-class client anyway).
+		-->
 		<iframe
 			id="sj-neko"
 			title="Remote browser"
 			allow="autoplay; fullscreen; clipboard-read; clipboard-write"
+			credentialless
 			hidden
 		></iframe>
 		<footer>
